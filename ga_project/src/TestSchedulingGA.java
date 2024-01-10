@@ -75,23 +75,62 @@ public class TestSchedulingGA {
 
     static class TestSchedulingFitnessFunction extends FitnessFunction {
         @Override
+//        protected double evaluate(IChromosome chromosome) {
+//            double fitness = 0.0;
+//            int totalTime = 0;
+//            int[] resourceUsage = new int[RESOURCE_REQUIREMENTS.length];
+//
+//            for (int i = 0; i < chromosome.size(); i++) {
+//                int testIndex = (Integer) chromosome.getGene(i).getAllele();
+//                totalTime += TEST_DURATIONS[testIndex];
+//
+//                resourceUsage[testIndex]++;
+//
+//                if (resourceUsage[testIndex] > RESOURCE_REQUIREMENTS[testIndex]) {
+//                    return 1.0 / (totalTime + 1); // Penalize by increasing the waiting time
+//                }
+//            }
+//            fitness = 1.0 / (totalTime + 1); // Return the inverse of total time
+//
+//            return fitness;
+//        }
         protected double evaluate(IChromosome chromosome) {
-            double fitness = 0.0;
-            int totalTime = 0;
             int[] resourceUsage = new int[RESOURCE_REQUIREMENTS.length];
+            int totalWaitingTime = 0;
 
             for (int i = 0; i < chromosome.size(); i++) {
                 int testIndex = (Integer) chromosome.getGene(i).getAllele();
-                totalTime += TEST_DURATIONS[testIndex];
+                int requiredResource = RESOURCE_REQUIREMENTS[testIndex];
 
-                resourceUsage[testIndex]++;
+                // Check if the required resource is available
+                if (resourceUsage[requiredResource - 1] == 0) {
+                    resourceUsage[requiredResource - 1] = testIndex + 1;
+                } else {
+                    // Find the next available resource that satisfies the test requirement
+                    boolean resourceFound = false;
+                    for (int j = requiredResource; j < RESOURCE_REQUIREMENTS.length; j++) {
+                        if (resourceUsage[j] == 0) {
+                            resourceUsage[j] = testIndex + 1;
+                            totalWaitingTime += j - (requiredResource - 1);
+                            resourceFound = true;
+                            break;
+                        }
+                    }
 
-                if (resourceUsage[testIndex] > RESOURCE_REQUIREMENTS[testIndex]) {
-                    return 1.0 / (totalTime + 1); // Penalize by increasing the waiting time
+                    // If no available resource found, wrap around to the beginning
+                    if (!resourceFound) {
+                        for (int j = 0; j < requiredResource - 1; j++) {
+                            if (resourceUsage[j] == 0) {
+                                resourceUsage[j] = testIndex + 1;
+                                totalWaitingTime += RESOURCE_REQUIREMENTS.length - (requiredResource - 1) + j;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
-            fitness = 1.0 / (totalTime + 1); // Return the inverse of total time
 
+            double fitness = 1.0 / (totalWaitingTime + 1); // Lower waiting time, higher fitness
             return fitness;
         }
     }
